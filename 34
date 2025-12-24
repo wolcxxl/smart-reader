@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Smart Reader v34</title>
+    
+    <!-- PWA Settings (Вернул настройки приложения) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Smart Reader">
+    <meta name="theme-color" content="#2d2d30">
+
+    <!-- Иконки (Вшиты в код) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%23007acc'><path d='M464 64H48C21.5 64 0 85.5 0 112v288c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM240 384H64V128h176v256zm192 0H272V128h160v256z'/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' style='background:%232d2d30' fill='%23007acc'><rect width='512' height='512' fill='%232d2d30'/><path d='M464 64H48C21.5 64 0 85.5 0 112v288c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM240 384H64V128h176v256zm192 0H272V128h160v256z'/></svg>">
+    
+    <!-- Манифест (Генерируется скриптом) -->
+    <link rel="manifest" id="manifest-placeholder">
+    
+    <!-- Libs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --text: #d4d4d4;
+            --accent: #007acc;
+            --border: #3e3e42;
+            --highlight: #2d333b;
+            --success: #4ec9b0;
+            --danger: #f14c4c;
+            --font-size: 18px;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: none;
+            padding-top: env(safe-area-inset-top); /* Учет челки iPhone */
+        }
+
+        /* --- HEADER (MENU) --- */
+        #main-header {
+            height: 0;
+            overflow: hidden;
+            background: #2d2d30;
+            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid transparent;
+            display: flex;
+            flex-direction: column; /* Вертикальный стек */
+            padding: 0 10px;
+            gap: 10px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 100;
+        }
+
+        #main-header.open {
+            height: 120px; /* Увеличили высоту, чтобы влез отступ */
+            border-bottom-color: var(--border);
+            padding-top: 40px; /* ВАЖНО: Спускаем контент ниже кнопки */
+            padding-bottom: 10px;
+        }
+
+        /* Кнопка-язычок меню */
+        #menu-toggle {
+            position: absolute;
+            top: 0; 
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-top: none;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            padding: 2px 30px;
+            cursor: pointer;
+            font-size: 24px;
+            line-height: 1;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background 0.2s;
+        }
+        #menu-toggle:active { background: var(--accent); }
+
+        /* Строки меню */
+        .menu-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            gap: 10px;
+            height: 35px;
+        }
+
+        /* Группы элементов */
+        .group { display: flex; align-items: center; gap: 8px; }
+
+        /* Controls Styles */
+        .file-wrapper {
+            position: relative; overflow: hidden; background: #444; padding: 4px 10px;
+            border-radius: 6px; cursor: pointer; display: flex; align-items: center; white-space: nowrap;
+            font-size: 13px; border: 1px solid #555;
+        }
+        .file-wrapper input { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; }
+        
+        select { 
+            background: #3e3e42; color: white; border: 1px solid #555; 
+            padding: 4px; border-radius: 6px; font-size: 13px; height: 28px;
+        }
+        
+        button { 
+            background: var(--accent); color: white; border: none; 
+            padding: 4px 10px; border-radius: 6px; font-size: 13px; height: 28px;
+        }
+        button:disabled { background: #333; color: #666; }
+        
+        .icon-btn { 
+            width: 32px; padding: 0; font-size: 16px; 
+            display: flex; justify-content: center; align-items: center; 
+        }
+        
+        button.active-state { background: #fff; color: #000; }
+
+        /* Progress Bar */
+        #progressBar {
+            position: fixed; top: 0; left: 0; height: 3px; background: #00ff00; width: 0%; 
+            z-index: 10001; transition: width 0.2s;
+        }
+
+        /* Layout */
+        #container {
+            display: flex; flex: 1; width: 100%; height: 100%;
+            overflow: hidden; flex-direction: column;
+            padding-top: 0;
+        }
+
+        .panel {
+            flex: 1; display: flex; flex-direction: column; overflow: hidden;
+            min-height: 50px; min-width: 50px; position: relative;
+        }
+
+        .panel-head {
+            background: #202020; padding: 0 10px; height: 30px;
+            font-size: 0.75em; color: #888; font-weight: 600; letter-spacing: 0.5px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #333; flex-shrink: 0; text-transform: uppercase;
+        }
+
+        .trans-controls { display: flex; gap: 8px; }
+        .btn-tiny { padding: 0 8px; font-size: 10px; height: 20px; border-radius: 3px; }
+        .btn-start { background: var(--success); color: #111; }
+        .btn-stop { background: var(--danger); }
+
+        .content-area {
+            flex: 1; overflow-y: auto; padding: 15px; 
+            font-size: var(--font-size); 
+            line-height: 1.5;
+            -webkit-overflow-scrolling: touch; touch-action: pan-y;
+        }
+        
+        /* Font Styles Classes */
+        .font-serif .content-area { font-family: 'Georgia', 'Times New Roman', serif; }
+        .font-mono .content-area { font-family: 'Consolas', 'Monaco', monospace; }
+        .font-bold .content-area { font-weight: 600; }
+
+        /* Resizer */
+        .resizer {
+            background: #111; z-index: 50; display: flex; justify-content: center; align-items: center;
+            flex-shrink: 0; touch-action: none;
+        }
+        .resizer::after { content: ""; width: 30px; height: 3px; background: #444; border-radius: 2px; }
+        .resizer.active, .resizer:hover { background: #333; }
+
+        /* Text Sync */
+        .orig-p { margin-bottom: 1em; text-align: justify; padding: 2px; border: 1px solid transparent; }
+        
+        .trans-p {
+            margin-bottom: 1em; padding: 4px 18px 4px 4px;
+            border: 1px solid #333; border-radius: 4px;
+            cursor: pointer; position: relative; 
+            background: #232323; min-height: 1.5em; text-align: justify;
+        }
+        
+        .trans-marker {
+            position: absolute; top: 2px; right: 2px;
+            font-size: 12px; opacity: 0.6; pointer-events: none;
+        }
+
+        .trans-p:active { background: #333; border-color: #555; }
+        
+        .trans-p.translated { 
+            border-color: transparent; background: transparent; cursor: text; 
+            padding: 2px; border-left: 2px solid var(--accent); padding-left: 8px; border-radius: 0;
+        }
+        .trans-p.translated .trans-marker { display: none; }
+        .trans-p.current { border-color: var(--success); background: rgba(78, 201, 176, 0.1); }
+        .trans-p.error { border-color: red; }
+
+        .word { cursor: pointer; border-bottom: 1px dotted transparent; }
+        .word:active, .word.active { background: var(--accent); color: white; border-radius: 2px;}
+
+        /* Tooltip */
+        #tooltip {
+            position: absolute; display: none;
+            background: rgba(40, 40, 40, 0.98); border: 1px solid #555;
+            padding: 10px; border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 9999; max-width: 250px; text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .t-word { font-weight: 700; color: #fff; display:block; margin-bottom: 4px;}
+        .t-trans { color: #ddd; display:block; margin-bottom: 8px; font-size: 1.1em;}
+        .close-tip { width: 100%; padding: 4px; background: rgba(255,255,255,0.1); border:none; color:#ccc; border-radius:4px; font-size:11px; }
+
+        /* Loader & Status */
+        #statusLine {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(45, 45, 48, 0.9); color: #999; font-size: 10px;
+            padding: 2px 10px; z-index: 10000; text-align: right;
+            pointer-events: none;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        #loader {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+            display: none; justify-content: center; align-items: center;
+            color: white; z-index: 2000; flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+
+<div id="progressBar"></div>
+
+<!-- MENU TOGGLE -->
+<button id="menu-toggle" title="Настройки">☰</button>
+
+<!-- HEADER -->
+<header id="main-header">
+    
+    <!-- ROW 1: File, Font -->
+    <div class="menu-row">
+        <div class="file-wrapper">
+            <span>📂</span>
+            <input type="file" id="fileInput">
+        </div>
+
+        <div class="group">
+            <select id="fontFamily" title="Шрифт" style="width:65px">
+                <option value="ui">Sans</option>
+                <option value="serif">Serif</option>
+                <option value="mono">Mono</option>
+            </select>
+            <select id="fontSize" title="Размер" style="width:50px">
+                <option value="14px">14</option>
+                <option value="16px">16</option>
+                <option value="18px" selected>18</option>
+                <option value="20px">20</option>
+                <option value="24px">24</option>
+                <option value="30px">30</option>
+            </select>
+            <button id="boldToggle" class="icon-btn" title="Жирный" style="font-weight:bold; width:30px">B</button>
+        </div>
+    </div>
+
+    <!-- ROW 2: Languages, View, Nav -->
+    <div class="menu-row">
+        <div class="group">
+            <select id="srcLang"><option value="auto">Auto</option><option value="en">EN</option><option value="de">DE</option><option value="fr">FR</option></select>
+            <span style="color:#666">→</span>
+            <select id="tgtLang"><option value="ru">RU</option><option value="en">EN</option><option value="uk">UK</option></select>
+        </div>
+
+        <button id="layoutBtn" class="icon-btn" title="Вид">⬍</button>
+
+        <div class="group" id="controls" style="display:none;">
+            <button id="prevBtn" class="icon-btn">←</button>
+            <select id="chapterSelect" style="max-width:80px"></select>
+            <button id="nextBtn" class="icon-btn">→</button>
+        </div>
+    </div>
+
+</header>
+
+<div id="container">
+    <div id="panel1" class="panel">
+        <div class="panel-head">Оригинал</div>
+        <div id="origPanel" class="content-area">
+            <div style="text-align:center; margin-top:30vh; color:#555;">
+                <p>Меню оптимизировано для телефона.</p>
+                <p>Добавлен PWA-манифест.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="resizer" class="resizer" style="height: 12px; width: 100%; cursor: row-resize;"></div>
+
+    <div id="panel2" class="panel">
+        <div class="panel-head">
+            <span>Перевод</span>
+            <div class="trans-controls">
+                <button id="btnStart" class="btn-tiny btn-start">▶</button>
+                <button id="btnStop" class="btn-tiny btn-stop" disabled>■</button>
+            </div>
+        </div>
+        <div id="transPanel" class="content-area"></div>
+    </div>
+</div>
+
+<div id="tooltip"></div>
+<div id="statusLine">Ready</div>
+<div id="loader"><div>Загрузка...</div></div>
+
+<script>
+    // --- GENERATE MANIFEST ON THE FLY FOR PWA ---
+    const manifest = {
+        name: "Smart Reader",
+        short_name: "Reader",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#1e1e1e",
+        theme_color: "#2d2d30",
+        icons: [{
+            src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%23007acc'><rect width='512' height='512' fill='%232d2d30'/><path d='M464 64H48C21.5 64 0 85.5 0 112v288c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM240 384H64V128h176v256zm192 0H272V128h160v256z'/></svg>",
+            sizes: "512x512",
+            type: "image/svg+xml"
+        }]
+    };
+    const stringManifest = JSON.stringify(manifest);
+    const blobManifest = new Blob([stringManifest], {type: 'application/json'});
+    document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blobManifest));
+
+    // --- CONFIG ---
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    const ui = {
+        menuBtn: document.getElementById('menu-toggle'),
+        header: document.getElementById('main-header'),
+        file: document.getElementById('fileInput'),
+        orig: document.getElementById('origPanel'),
+        trans: document.getElementById('transPanel'),
+        controls: document.getElementById('controls'),
+        chapSel: document.getElementById('chapterSelect'),
+        loader: document.getElementById('loader'),
+        status: document.getElementById('statusLine'),
+        tooltip: document.getElementById('tooltip'),
+        src: document.getElementById('srcLang'),
+        tgt: document.getElementById('tgtLang'),
+        container: document.getElementById('container'),
+        panel1: document.getElementById('panel1'),
+        panel2: document.getElementById('panel2'),
+        resizer: document.getElementById('resizer'),
+        layoutBtn: document.getElementById('layoutBtn'),
+        bar: document.getElementById('progressBar'),
+        btnStart: document.getElementById('btnStart'),
+        btnStop: document.getElementById('btnStop'),
+        fontFam: document.getElementById('fontFamily'),
+        fontSize: document.getElementById('fontSize'),
+        boldBtn: document.getElementById('boldToggle')
+    };
+
+    let book, spine, currentIdx = 0, isTranslating = false, fb2Sections = [];
+    
+    // --- MENU TOGGLE ---
+    ui.menuBtn.onclick = () => {
+        ui.header.classList.toggle('open');
+    };
+
+    // --- FONTS ---
+    ui.fontFam.onchange = () => {
+        document.body.classList.remove('font-serif', 'font-mono');
+        if(ui.fontFam.value === 'serif') document.body.classList.add('font-serif');
+        if(ui.fontFam.value === 'mono') document.body.classList.add('font-mono');
+    };
+    ui.fontSize.onchange = () => {
+        document.documentElement.style.setProperty('--font-size', ui.fontSize.value);
+    };
+    ui.boldBtn.onclick = () => {
+        document.body.classList.toggle('font-bold');
+        ui.boldBtn.classList.toggle('active-state');
+        ui.boldBtn.style.background = document.body.classList.contains('font-bold') ? '#fff' : 'var(--accent)';
+        ui.boldBtn.style.color = document.body.classList.contains('font-bold') ? '#000' : '#fff';
+    };
+
+    // --- HELPERS ---
+    const setStatus = (msg) => ui.status.innerText = msg;
+    const showLoad = () => ui.loader.style.display = 'flex';
+    const hideLoad = () => ui.loader.style.display = 'none';
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // --- LAYOUT ---
+    let isVertical = true;
+    function updateLayout() {
+        if(isVertical) {
+            ui.container.style.flexDirection = 'column';
+            ui.resizer.style.width = '100%'; ui.resizer.style.height = '12px'; ui.resizer.style.cursor = 'row-resize';
+            ui.layoutBtn.innerText = '⬍';
+        } else {
+            ui.container.style.flexDirection = 'row';
+            ui.resizer.style.width = '12px'; ui.resizer.style.height = '100%'; ui.resizer.style.cursor = 'col-resize';
+            ui.layoutBtn.innerText = '⬄';
+        }
+        ui.panel1.style.flex = '1'; ui.panel2.style.flex = '1';
+    }
+    ui.layoutBtn.onclick = () => { isVertical = !isVertical; updateLayout(); };
+
+    // --- RESIZER ---
+    let isResizing = false;
+    const startR = (e) => { isResizing=true; if(e.type==='touchstart')e.preventDefault(); ui.resizer.classList.add('active'); };
+    const stopR = () => { isResizing=false; ui.resizer.classList.remove('active'); };
+    const doR = (e) => {
+        if(!isResizing) return;
+        let cy = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+        let cx = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+        const r = ui.container.getBoundingClientRect();
+        if(isVertical) {
+            let pct = ((cy - r.top) / r.height) * 100;
+            if(pct>10 && pct<90) { ui.panel1.style.flex = `0 0 ${pct}%`; ui.panel2.style.flex = '1'; }
+        } else {
+            let pct = ((cx - r.left) / r.width) * 100;
+            if(pct>10 && pct<90) { ui.panel1.style.flex = `0 0 ${pct}%`; ui.panel2.style.flex = '1'; }
+        }
+    };
+    ui.resizer.addEventListener('mousedown', startR); document.addEventListener('mouseup', stopR); document.addEventListener('mousemove', doR);
+    ui.resizer.addEventListener('touchstart', startR); document.addEventListener('touchend', stopR); document.addEventListener('touchmove', doR);
+
+    // --- FILES ---
+    ui.file.onclick = () => { ui.file.value = null; };
+    ui.file.addEventListener('change', async (e) => {
+        const f = e.target.files[0];
+        if(!f) return;
+        
+        ui.header.classList.remove('open'); 
+        setStatus(`Load: ${f.name}`);
+        showLoad();
+        await sleep(50); 
+
+        try {
+            ui.controls.style.display = 'flex'; // Показываем навигацию по главам
+            const n = f.name.toLowerCase();
+            
+            if(n.endsWith('.zip')) await loadZip(f);
+            else if(n.endsWith('.fb2')) await loadFb2(f);
+            else if(n.endsWith('.epub')) await loadEpub(f);
+            else if(n.endsWith('.pdf')) await loadPdf(f);
+            else render(await f.text());
+            
+            setStatus(f.name);
+        } catch(err) {
+            alert(err.message); setStatus("Ошибка");
+        } finally { hideLoad(); }
+    });
+
+    // --- READERS ---
+    async function loadZip(f) {
+        const z = new JSZip(); const c = await z.loadAsync(f);
+        let target = null, tName = "";
+        for(let n in c.files) {
+            if(n.match(/\.(fb2|epub|txt)$/i) && !c.files[n].dir) { target = c.files[n]; tName = n.toLowerCase(); break; }
+        }
+        if(!target) throw new Error("Нет книг в ZIP");
+        if(tName.endsWith('.epub')) await loadEpub(new File([await target.async("blob")], "b.epub"));
+        else if(tName.endsWith('.fb2')) processFb2(await target.async("string"));
+        else render(await target.async("string"));
+    }
+
+    async function loadFb2(f) { processFb2(await f.text()); }
+    function processFb2(txt) {
+        const doc = new DOMParser().parseFromString(txt, "text/xml");
+        const body = doc.querySelector("body");
+        if(!body) throw new Error("Bad FB2");
+        const secs = Array.from(body.querySelectorAll("section"));
+        fb2Sections = [];
+        ui.chapSel.innerHTML = '';
+        
+        if(secs.length > 0) {
+            secs.forEach((s, i) => {
+                let t = s.querySelector("title")?.textContent || `Glava ${i+1}`;
+                if(t.length>20) t = t.substring(0,20)+"...";
+                fb2Sections.push(s);
+                ui.chapSel.add(new Option(t, i));
+            });
+            loadFb2Chap(0);
+        } else {
+            fb2Sections = [body];
+            ui.chapSel.add(new Option("Текст", 0));
+            loadFb2Chap(0);
+        }
+    }
+    function loadFb2Chap(i) {
+        resetTrans();
+        currentIdx = i; ui.chapSel.value = i;
+        const s = fb2Sections[i];
+        let txt = "";
+        const ps = s.querySelectorAll("p,v,subtitle");
+        if(ps.length>0) ps.forEach(p => txt += p.textContent + "\n\n");
+        else txt = s.textContent;
+        render(txt);
+    }
+
+    async function loadEpub(f) {
+        fb2Sections = [];
+        book = ePub(await f.arrayBuffer());
+        await book.ready;
+        spine = book.spine.spineItems;
+        ui.chapSel.innerHTML = '';
+        spine.forEach((_,i) => ui.chapSel.add(new Option(`${i+1}`, i)));
+        loadEpubChap(0);
+    }
+    async function loadEpubChap(i) {
+        resetTrans();
+        currentIdx = i; ui.chapSel.value = i;
+        showLoad();
+        try {
+            const doc = await spine[i].load(book.load.bind(book));
+            let h = doc.body?.innerHTML || new XMLSerializer().serializeToString(doc);
+            let t = h.replace(/<(br|div|p|h\d)[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').replace(/\n\s*\n/g, '\n\n');
+            render(t);
+        } catch(e) { render("Err: "+e.message); }
+        finally { hideLoad(); }
+    }
+
+    async function loadPdf(f) {
+        ui.controls.style.display = 'none';
+        showLoad();
+        try {
+            const pdf = await pdfjsLib.getDocument(await f.arrayBuffer()).promise;
+            let t = "";
+            for(let i=1; i<=Math.min(pdf.numPages, 30); i++) {
+                const p = await pdf.getPage(i);
+                const c = await p.getTextContent();
+                t += c.items.map(s=>s.str).join(' ') + "\n\n";
+            }
+            render(t);
+        } catch(e) { alert("PDF Error"); }
+        finally { hideLoad(); }
+    }
+
+    // --- RENDER ---
+    function render(txt) {
+        ui.orig.innerHTML = ''; ui.trans.innerHTML = ''; ui.orig.scrollTop = 0;
+        const arr = txt.split(/\n\s*\n/).filter(x => x.trim().length > 1);
+        if(!arr.length) { ui.orig.innerHTML = "<p>Empty</p>"; return; }
+
+        const f1 = document.createDocumentFragment();
+        const f2 = document.createDocumentFragment();
+
+        arr.forEach(s => {
+            const d1 = document.createElement('div'); d1.className = 'orig-p';
+            d1.innerHTML = s.replace(/([a-zA-Zа-яА-Я0-9\u00C0-\u00FF'-]+)/g, '<span class="word" onclick="clickWord(event,this)">$1</span>');
+            f1.appendChild(d1);
+
+            const d2 = document.createElement('div'); d2.className = 'trans-p'; 
+            d2.dataset.text = s; 
+            d2.innerHTML = `<span class="trans-marker">🌎</span>${s}`;
+            d2.onclick = () => doTrans(d2);
+            f2.appendChild(d2);
+        });
+        ui.orig.appendChild(f1); ui.trans.appendChild(f2);
+        setupSync();
+    }
+
+    // --- TRANS ---
+    async function api(txt) {
+        const u = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${ui.src.value}&tl=${ui.tgt.value}&dt=t&q=${encodeURIComponent(txt)}`;
+        const r = await fetch(u);
+        const d = await r.json();
+        return d[0].map(x=>x[0]).join('');
+    }
+
+    async function doTrans(el) {
+        if(el.classList.contains('translated') || el.classList.contains('loading')) return;
+        el.classList.add('loading'); el.classList.add('current');
+        try {
+            const t = await api(el.dataset.text);
+            el.innerHTML = t; el.classList.add('translated');
+        } catch { el.classList.add('error'); }
+        finally { el.classList.remove('loading', 'current'); }
+    }
+
+    function resetTrans() { isTranslating=false; ui.btnStart.disabled=false; ui.btnStop.disabled=true; }
+
+    ui.btnStart.onclick = async () => {
+        if(isTranslating) return;
+        const els = Array.from(document.querySelectorAll('.trans-p'));
+        if(!els.length) return;
+        isTranslating = true; ui.btnStart.disabled = true; ui.btnStop.disabled = false;
+        
+        let idx = els.findIndex(e => e.offsetTop + e.clientHeight > ui.trans.scrollTop);
+        if(idx<0) idx=0;
+
+        for(let i=idx; i<els.length; i++) {
+            if(!isTranslating) break;
+            if(!els[i].classList.contains('translated')) {
+                await doTrans(els[i]);
+                ui.bar.style.width = `${((i+1)/els.length)*100}%`;
+                await sleep(500);
+            }
+        }
+        ui.bar.style.width = '0%'; resetTrans();
+    };
+    ui.btnStop.onclick = resetTrans;
+
+    window.clickWord = async (e, el) => {
+        e.stopPropagation();
+        document.querySelectorAll('.word.active').forEach(x=>x.classList.remove('active'));
+        el.classList.add('active');
+        
+        const w = el.innerText;
+        const r = el.getBoundingClientRect();
+        ui.tooltip.style.display = 'block';
+        ui.tooltip.style.top = (r.bottom + 5) + 'px';
+        let left = r.left;
+        if(left + 160 > window.innerWidth) left = window.innerWidth - 170;
+        ui.tooltip.style.left = left + 'px';
+        
+        ui.tooltip.innerHTML = `<span class="t-word">${w}</span><span class="t-trans">...</span>`;
+        try {
+            const t = await api(w);
+            ui.tooltip.innerHTML = `<span class="t-word">${w}</span><span class="t-trans">${t}</span><button class="close-tip" onclick="document.getElementById('tooltip').style.display='none'">Закрыть</button>`;
+        } catch { ui.tooltip.innerHTML = "Ошибка"; }
+    };
+
+    document.addEventListener('click', (e) => {
+        if(!e.target.classList.contains('word') && !ui.tooltip.contains(e.target)) {
+            ui.tooltip.style.display = 'none';
+            document.querySelectorAll('.word.active').forEach(x=>x.classList.remove('active'));
+        }
+    });
+
+    function setupSync() {
+        let l=0, r=0;
+        ui.orig.onscroll = () => { if(!l){r=1; s(ui.orig, ui.trans);} l=0; };
+        ui.trans.onscroll = () => { if(!r){l=1; s(ui.trans, ui.orig);} r=0; };
+    }
+    const s = (a, b) => { b.scrollTop = (a.scrollTop / (a.scrollHeight - a.clientHeight)) * (b.scrollHeight - b.clientHeight); }
+
+    function loadAny(i) {
+        if(fb2Sections.length) loadFb2Chap(i);
+        else if(spine && spine.length) loadEpubChap(i);
+    }
+    ui.chapSel.onchange = (e) => loadAny(parseInt(e.target.value));
+    document.getElementById('prevBtn').onclick = () => loadAny(currentIdx-1);
+    document.getElementById('nextBtn').onclick = () => loadAny(currentIdx+1);
+
+    updateLayout();
+</script>
+</body>
+</html>
