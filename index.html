@@ -3,22 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Smart Reader</title>
+    <title>Smart Reader v29</title>
     
-    <!-- PWA Settings for iOS -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Smart Reader">
-    <meta name="theme-color" content="#2d2d30">
-
-    <!-- Auto-Generated Icon (SVG) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%23007acc'><path d='M464 64H48C21.5 64 0 85.5 0 112v288c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM240 384H64V128h176v256zm192 0H272V128h160v256z'/></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' style='background:%232d2d30' fill='%23007acc'><path d='M464 64H48C21.5 64 0 85.5 0 112v288c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM240 384H64V128h176v256zm192 0H272V128h160v256z'/></svg>">
-
-    <!-- Web App Manifest (Data URI for Single File) -->
-    <link rel="manifest" id="manifest-placeholder">
-
-    <!-- Libraries -->
+    <!-- Libs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
@@ -26,7 +13,6 @@
     <style>
         :root {
             --bg: #1e1e1e;
-            --panel: #252526;
             --text: #d4d4d4;
             --accent: #007acc;
             --border: #3e3e42;
@@ -43,60 +29,73 @@
             background: var(--bg);
             color: var(--text);
             height: 100vh;
-            height: 100dvh; /* Mobile viewport fix */
             display: flex;
             flex-direction: column;
             overflow: hidden;
             touch-action: none;
-            padding-top: env(safe-area-inset-top); /* Notch support */
         }
 
-        /* Header */
-        header {
-            height: 50px;
+        /* --- SPOILER HEADER --- */
+        #menu-toggle {
+            position: absolute;
+            top: 5px; 
+            right: 10px; /* ПЕРЕМЕЩЕНО ВПРАВО */
+            z-index: 200;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            backdrop-filter: blur(4px);
+        }
+
+        #main-header {
+            height: 0;
+            overflow: hidden;
             background: #2d2d30;
+            transition: height 0.3s ease;
+            border-bottom: 1px solid transparent;
             display: flex;
             align-items: center;
-            border-bottom: 1px solid var(--border);
             padding: 0 10px;
             gap: 10px;
             flex-shrink: 0;
         }
 
-        .group { display: flex; align-items: center; gap: 5px; }
+        #main-header.open {
+            height: 60px;
+            border-bottom-color: var(--border);
+            padding-right: 50px; /* Отступ справа для кнопки */
+        }
 
+        /* Controls inside header */
         .file-wrapper {
             position: relative; overflow: hidden; background: #444; padding: 6px 12px;
-            border-radius: 6px; cursor: pointer; display: flex; align-items: center;
+            border-radius: 6px; cursor: pointer; display: flex; align-items: center; white-space: nowrap;
         }
-        .file-wrapper input[type=file] {
-            position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
-        }
-        .file-label-text { font-size: 0.9em; font-weight: 500; pointer-events: none; color: #fff; }
-
-        select {
-            background: #3e3e42; color: white; border: 1px solid #555;
-            padding: 5px; border-radius: 6px; cursor: pointer; font-size: 14px;
-        }
-
-        button {
-            background: var(--accent); color: white; border: none;
-            padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;
-            display: flex; align-items: center; justify-content: center;
-        }
+        .file-wrapper input { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; }
+        
+        .group { display: flex; align-items: center; gap: 5px; }
+        
+        select { background: #3e3e42; color: white; border: 1px solid #555; padding: 5px; border-radius: 6px; }
+        button { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; }
         button:disabled { background: #333; color: #666; }
-        button.icon-btn { width: 40px; background: #444; font-size: 18px; }
+        .icon-btn { width: 36px; padding: 0; font-size: 16px; display: flex; justify-content: center; align-items: center; }
 
         /* Progress Bar */
         #progressBar {
-            position: fixed; top: 0; left: 0; height: 4px; background: #00ff00; width: 0%; 
+            position: fixed; top: 0; left: 0; height: 3px; background: #00ff00; width: 0%; 
             z-index: 10001; transition: width 0.2s;
         }
 
-        /* Main Container */
+        /* Layout */
         #container {
             display: flex; flex: 1; width: 100%; height: 100%;
             overflow: hidden; flex-direction: column;
+            padding-top: 0;
         }
 
         .panel {
@@ -105,111 +104,132 @@
         }
 
         .panel-head {
-            background: #202020; padding: 0 15px; height: 40px;
-            font-size: 0.8em; color: #aaa; font-weight: 600; letter-spacing: 0.5px;
+            background: #202020; padding: 0 10px; height: 30px;
+            font-size: 0.75em; color: #888; font-weight: 600; letter-spacing: 0.5px;
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid #333; flex-shrink: 0; text-transform: uppercase;
         }
 
         .trans-controls { display: flex; gap: 8px; }
-        .btn-start { background: var(--success); color: #111; padding: 4px 10px; font-size: 11px; }
-        .btn-stop { background: var(--danger); padding: 4px 10px; font-size: 11px; }
+        .btn-tiny { padding: 2px 8px; font-size: 10px; height: 20px; border-radius: 3px; }
+        .btn-start { background: var(--success); color: #111; }
+        .btn-stop { background: var(--danger); }
 
         .content-area {
-            flex: 1; overflow-y: auto; padding: 20px; font-size: 18px; line-height: 1.6;
+            flex: 1; overflow-y: auto; padding: 15px; font-size: 17px; line-height: 1.5;
             -webkit-overflow-scrolling: touch; touch-action: pan-y;
         }
 
         /* Resizer */
         .resizer {
             background: #111; z-index: 50; display: flex; justify-content: center; align-items: center;
-            flex-shrink: 0; user-select: none; touch-action: none;
+            flex-shrink: 0; touch-action: none;
         }
-        .resizer::after { content: ""; width: 40px; height: 4px; background: #444; border-radius: 2px; }
+        .resizer::after { content: ""; width: 30px; height: 3px; background: #444; border-radius: 2px; }
         .resizer.active, .resizer:hover { background: #333; }
-        .resizer.active::after { background: var(--accent); }
 
-        /* Content Text */
-        .orig-p { margin-bottom: 1.5em; text-align: justify; }
-        .trans-p {
-            margin-bottom: 1.5em; padding: 12px; border: 1px solid #444; border-radius: 8px;
-            cursor: pointer; position: relative; background: #232323;
+        /* --- TEXT SYNC OPTIMIZATION --- */
+        .orig-p { 
+            margin-bottom: 1em; 
+            text-align: justify; 
+            padding: 2px;
+            border: 1px solid transparent;
         }
-        .trans-p:active { background: #333; }
-        .trans-p.translated { 
-            border-color: transparent; background: transparent; cursor: text; padding: 0 0 0 10px;
-            border-left: 3px solid var(--accent); border-radius: 0;
-        }
-        .trans-p.current { border-color: var(--success); background: rgba(78, 201, 176, 0.1); }
-        .hint { font-size: 0.75em; color: var(--accent); display: block; margin-bottom: 4px; opacity: 0.8; }
         
-        .word { cursor: pointer; border-bottom: 1px dotted transparent; }
-        .word:active { background: rgba(255,215,0, 0.3); color: white; }
-        .word.active { background: var(--accent); color: white; border-radius: 2px;}
+        .trans-p {
+            margin-bottom: 1em; 
+            padding: 4px 18px 4px 4px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            cursor: pointer; 
+            position: relative; 
+            background: #232323;
+            min-height: 1.5em;
+            text-align: justify;
+        }
+        
+        /* The Globe Icon */
+        .trans-marker {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 12px;
+            opacity: 0.6;
+            pointer-events: none;
+        }
 
-        /* Tooltip Popup */
+        .trans-p:active { background: #333; border-color: #555; }
+        
+        .trans-p.translated { 
+            border-color: transparent; 
+            background: transparent; 
+            cursor: text; 
+            padding: 2px;
+            border-left: 2px solid var(--accent); 
+            padding-left: 8px;
+            border-radius: 0;
+        }
+        .trans-p.translated .trans-marker { display: none; }
+        
+        .trans-p.current { border-color: var(--success); background: rgba(78, 201, 176, 0.1); }
+        .trans-p.error { border-color: red; }
+
+        .word { cursor: pointer; border-bottom: 1px dotted transparent; }
+        .word:active, .word.active { background: var(--accent); color: white; border-radius: 2px;}
+
+        /* Tooltip */
         #tooltip {
             position: absolute; display: none;
-            background: rgba(40, 40, 40, 0.95); border: 1px solid #555;
-            padding: 12px; border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            z-index: 9999; max-width: 280px; min-width: 140px; text-align: center;
+            background: rgba(40, 40, 40, 0.98); border: 1px solid #555;
+            padding: 10px; border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 9999; max-width: 250px; text-align: center;
             backdrop-filter: blur(10px);
-            animation: fadeUp 0.15s ease-out;
         }
-        @keyframes fadeUp { from{opacity:0; transform:translateY(5px)} to{opacity:1; transform:translateY(0)} }
-        
-        #tooltip .t-word { font-weight: 700; font-size: 1.1em; color: white; margin-bottom: 4px; display:block; }
-        #tooltip .t-trans { font-size: 1.1em; color: #ddd; margin-bottom: 10px; display:block; }
-        .close-tip {
-            width: 100%; padding: 6px; background: rgba(255,255,255,0.1); border: none; 
-            color: #ccc; cursor: pointer; border-radius: 6px; font-size: 12px;
-        }
+        .t-word { font-weight: 700; color: #fff; display:block; margin-bottom: 4px;}
+        .t-trans { color: #ddd; display:block; margin-bottom: 8px; font-size: 1.1em;}
+        .close-tip { width: 100%; padding: 4px; background: rgba(255,255,255,0.1); border:none; color:#ccc; border-radius:4px; font-size:11px; }
 
-        /* Status & Loader */
+        /* Loader & Status */
         #statusLine {
             position: fixed; bottom: 0; left: 0; right: 0;
-            background: #2d2d30; color: #888; font-size: 11px;
-            padding: 4px 10px; z-index: 10000; text-align: center;
-            border-top: 1px solid #333;
-            padding-bottom: env(safe-area-inset-bottom);
+            background: rgba(45, 45, 48, 0.9); color: #999; font-size: 10px;
+            padding: 2px 10px; z-index: 10000; text-align: right;
+            pointer-events: none;
         }
-        
         #loader {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
             display: none; justify-content: center; align-items: center;
             color: white; z-index: 2000; flex-direction: column;
         }
-        .spinner {
-            width: 40px; height: 40px; border: 4px solid #444; border-top: 4px solid var(--accent);
-            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
     </style>
 </head>
 <body>
 
 <div id="progressBar"></div>
 
-<header>
+<!-- MENU TOGGLE BUTTON -->
+<button id="menu-toggle" title="Меню">☰</button>
+
+<!-- COLLAPSIBLE HEADER -->
+<header id="main-header">
     <div class="file-wrapper">
-        <span class="file-label-text">📂 Открыть</span>
+        <span>📂</span>
         <input type="file" id="fileInput">
     </div>
 
     <div class="group">
-        <select id="srcLang"><option value="de">DE</option><option value="en">EN</option><option value="fr">FR</option><option value="auto">Auto</option></select>
-        <span style="color:#666">→</span>
+        <select id="srcLang"><option value="auto">Auto</option><option value="en">EN</option><option value="de">DE</option><option value="fr">FR</option></select>
+        <span>→</span>
         <select id="tgtLang"><option value="ru">RU</option><option value="en">EN</option><option value="uk">UK</option></select>
     </div>
 
     <button id="layoutBtn" class="icon-btn" title="Вид">⬍</button>
 
     <div class="group" id="controls" style="display:none; margin-left:auto;">
-        <button id="prevBtn">←</button>
-        <select id="chapterSelect" style="max-width:100px"></select>
-        <button id="nextBtn">→</button>
+        <button id="prevBtn" class="icon-btn">←</button>
+        <select id="chapterSelect" style="max-width:80px"></select>
+        <button id="nextBtn" class="icon-btn">→</button>
     </div>
 </header>
 
@@ -217,22 +237,21 @@
     <div id="panel1" class="panel">
         <div class="panel-head">Оригинал</div>
         <div id="origPanel" class="content-area">
-            <div style="text-align:center; margin-top:25vh; color:#666; padding:20px;">
-                <h3>Smart Reader PWA</h3>
-                <p>Нажмите "Поделиться" → "На экран Домой", чтобы установить как приложение.</p>
-                <p>Поддержка FB2, EPUB, PDF.</p>
+            <div style="text-align:center; margin-top:30vh; color:#555;">
+                <p>Меню сверху справа (☰)</p>
+                <p>Загрузите книгу.</p>
             </div>
         </div>
     </div>
 
-    <div id="resizer" class="resizer" style="height: 16px; width: 100%; cursor: row-resize;"></div>
+    <div id="resizer" class="resizer" style="height: 12px; width: 100%; cursor: row-resize;"></div>
 
     <div id="panel2" class="panel">
         <div class="panel-head">
             <span>Перевод</span>
             <div class="trans-controls">
-                <button id="btnStart" class="btn-start">▶ Старт</button>
-                <button id="btnStop" class="btn-stop" disabled>■ Стоп</button>
+                <button id="btnStart" class="btn-tiny btn-start">▶</button>
+                <button id="btnStop" class="btn-tiny btn-stop" disabled>■</button>
             </div>
         </div>
         <div id="transPanel" class="content-area"></div>
@@ -240,40 +259,22 @@
 </div>
 
 <div id="tooltip"></div>
-<div id="statusLine">Инициализация...</div>
-<div id="loader"><div class="spinner"></div><div id="loaderLog">Загрузка...</div></div>
+<div id="statusLine">Ready</div>
+<div id="loader"><div>Загрузка...</div></div>
 
 <script>
-    // --- GENERATE MANIFEST ON THE FLY ---
-    const manifest = {
-        name: "Smart Reader",
-        short_name: "Reader",
-        start_url: ".",
-        display: "standalone",
-        background_color: "#1e1e1e",
-        theme_color: "#2d2d30",
-        icons: [{
-            src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%23007acc'><rect width='512' height='512' fill='%232d2d30'/><path d='M464 64H48C21.5 64 0 85.5 0 112v288c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM240 384H64V128h176v256zm192 0H272V128h160v256z'/></svg>",
-            sizes: "512x512",
-            type: "image/svg+xml"
-        }]
-    };
-    const stringManifest = JSON.stringify(manifest);
-    const blobManifest = new Blob([stringManifest], {type: 'application/json'});
-    document.getElementById('manifest-placeholder').setAttribute('href', URL.createObjectURL(blobManifest));
-
     // --- CONFIG ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
     
-    // --- UI REFERENCES ---
     const ui = {
+        menuBtn: document.getElementById('menu-toggle'),
+        header: document.getElementById('main-header'),
         file: document.getElementById('fileInput'),
         orig: document.getElementById('origPanel'),
         trans: document.getElementById('transPanel'),
         controls: document.getElementById('controls'),
         chapSel: document.getElementById('chapterSelect'),
         loader: document.getElementById('loader'),
-        log: document.getElementById('loaderLog'),
         status: document.getElementById('statusLine'),
         tooltip: document.getElementById('tooltip'),
         src: document.getElementById('srcLang'),
@@ -290,23 +291,27 @@
 
     let book, spine, currentIdx = 0, isTranslating = false, fb2Sections = [];
     
+    // --- MENU TOGGLE ---
+    ui.menuBtn.onclick = () => {
+        ui.header.classList.toggle('open');
+    };
+
+    // --- HELPERS ---
     const setStatus = (msg) => ui.status.innerText = msg;
-    const showLoad = (msg) => { ui.log.innerText = msg || "Загрузка..."; ui.loader.style.display = 'flex'; };
+    const showLoad = () => ui.loader.style.display = 'flex';
     const hideLoad = () => ui.loader.style.display = 'none';
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-    window.onload = () => setStatus("PWA Reader готов. Выберите файл.");
 
     // --- LAYOUT ---
     let isVertical = true;
     function updateLayout() {
         if(isVertical) {
             ui.container.style.flexDirection = 'column';
-            ui.resizer.style.width = '100%'; ui.resizer.style.height = '16px'; ui.resizer.style.cursor = 'row-resize';
+            ui.resizer.style.width = '100%'; ui.resizer.style.height = '12px'; ui.resizer.style.cursor = 'row-resize';
             ui.layoutBtn.innerText = '⬍';
         } else {
             ui.container.style.flexDirection = 'row';
-            ui.resizer.style.width = '16px'; ui.resizer.style.height = '100%'; ui.resizer.style.cursor = 'col-resize';
+            ui.resizer.style.width = '12px'; ui.resizer.style.height = '100%'; ui.resizer.style.cursor = 'col-resize';
             ui.layoutBtn.innerText = '⬄';
         }
         ui.panel1.style.flex = '1'; ui.panel2.style.flex = '1';
@@ -339,9 +344,10 @@
         const f = e.target.files[0];
         if(!f) return;
         
-        setStatus(`Загрузка: ${f.name}...`);
-        showLoad("Открытие...");
-        await sleep(50); // UI refresh
+        ui.header.classList.remove('open'); // Закрыть меню после выбора
+        setStatus(`Load: ${f.name}`);
+        showLoad();
+        await sleep(50); 
 
         try {
             ui.controls.style.display = 'none';
@@ -361,22 +367,18 @@
 
     // --- READERS ---
     async function loadZip(f) {
-        showLoad("Unzip...");
-        const z = new JSZip();
-        const c = await z.loadAsync(f);
+        const z = new JSZip(); const c = await z.loadAsync(f);
         let target = null, tName = "";
         for(let n in c.files) {
-            if(n.match(/\.(fb2|epub|txt)$/i)) { target = c.files[n]; tName = n; break; }
+            if(n.match(/\.(fb2|epub|txt)$/i) && !c.files[n].dir) { target = c.files[n]; tName = n.toLowerCase(); break; }
         }
-        if(!target) throw new Error("Книги не найдены в архиве");
-        setStatus(`Распаковано: ${tName}`);
-        
+        if(!target) throw new Error("Нет книг в ZIP");
         if(tName.endsWith('.epub')) await loadEpub(new File([await target.async("blob")], "b.epub"));
         else if(tName.endsWith('.fb2')) processFb2(await target.async("string"));
         else render(await target.async("string"));
     }
 
-    async function loadFb2(f) { showLoad("FB2..."); processFb2(await f.text()); }
+    async function loadFb2(f) { processFb2(await f.text()); }
     function processFb2(txt) {
         const doc = new DOMParser().parseFromString(txt, "text/xml");
         const body = doc.querySelector("body");
@@ -388,8 +390,8 @@
         
         if(secs.length > 0) {
             secs.forEach((s, i) => {
-                let t = s.querySelector("title")?.textContent || `Глава ${i+1}`;
-                if(t.length>30) t = t.substring(0,30)+"...";
+                let t = s.querySelector("title")?.textContent || `Glava ${i+1}`;
+                if(t.length>20) t = t.substring(0,20)+"...";
                 fb2Sections.push(s);
                 ui.chapSel.add(new Option(t, i));
             });
@@ -417,42 +419,44 @@
         await book.ready;
         spine = book.spine.spineItems;
         ui.chapSel.innerHTML = '';
-        spine.forEach((_,i) => ui.chapSel.add(new Option(`Глава ${i+1}`, i)));
+        spine.forEach((_,i) => ui.chapSel.add(new Option(`${i+1}`, i)));
         ui.controls.style.display = 'flex';
         loadEpubChap(0);
     }
     async function loadEpubChap(i) {
         resetTrans();
         currentIdx = i; ui.chapSel.value = i;
-        showLoad(`Глава ${i+1}`);
+        showLoad();
         try {
             const doc = await spine[i].load(book.load.bind(book));
             let h = doc.body?.innerHTML || new XMLSerializer().serializeToString(doc);
             let t = h.replace(/<(br|div|p|h\d)[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g,' ').replace(/\n\s*\n/g, '\n\n');
             render(t);
-        } catch(e) { render("Error: "+e.message); }
+        } catch(e) { render("Err: "+e.message); }
         finally { hideLoad(); }
     }
 
     async function loadPdf(f) {
         ui.controls.style.display = 'none';
-        showLoad("PDF...");
-        const pdf = await pdfjsLib.getDocument(await f.arrayBuffer()).promise;
-        let t = "";
-        for(let i=1; i<=Math.min(pdf.numPages, 30); i++) {
-            showLoad(`PDF ${i}/${pdf.numPages}`);
-            const p = await pdf.getPage(i);
-            const c = await p.getTextContent();
-            t += c.items.map(s=>s.str).join(' ') + "\n\n";
-        }
-        render(t);
+        showLoad();
+        try {
+            const pdf = await pdfjsLib.getDocument(await f.arrayBuffer()).promise;
+            let t = "";
+            for(let i=1; i<=Math.min(pdf.numPages, 30); i++) {
+                const p = await pdf.getPage(i);
+                const c = await p.getTextContent();
+                t += c.items.map(s=>s.str).join(' ') + "\n\n";
+            }
+            render(t);
+        } catch(e) { alert("PDF Error"); }
+        finally { hideLoad(); }
     }
 
-    // --- RENDER ---
+    // --- RENDER (SYNC OPTIMIZED) ---
     function render(txt) {
         ui.orig.innerHTML = ''; ui.trans.innerHTML = ''; ui.orig.scrollTop = 0;
         const arr = txt.split(/\n\s*\n/).filter(x => x.trim().length > 1);
-        if(!arr.length) { ui.orig.innerHTML = "<p>Пусто</p>"; return; }
+        if(!arr.length) { ui.orig.innerHTML = "<p>Empty</p>"; return; }
 
         const f1 = document.createDocumentFragment();
         const f2 = document.createDocumentFragment();
@@ -463,7 +467,8 @@
             f1.appendChild(d1);
 
             const d2 = document.createElement('div'); d2.className = 'trans-p'; 
-            d2.dataset.text = s; d2.innerHTML = `<span class="hint">Перевести</span>${s}`;
+            d2.dataset.text = s; 
+            d2.innerHTML = `<span class="trans-marker">🌎</span>${s}`;
             d2.onclick = () => doTrans(d2);
             f2.appendChild(d2);
         });
@@ -485,7 +490,7 @@
         try {
             const t = await api(el.dataset.text);
             el.innerHTML = t; el.classList.add('translated');
-        } catch { el.classList.add('error'); el.innerHTML = "Ошибка"; }
+        } catch { el.classList.add('error'); }
         finally { el.classList.remove('loading', 'current'); }
     }
 
@@ -497,7 +502,6 @@
         if(!els.length) return;
         isTranslating = true; ui.btnStart.disabled = true; ui.btnStop.disabled = false;
         
-        // Find first visible
         let idx = els.findIndex(e => e.offsetTop + e.clientHeight > ui.trans.scrollTop);
         if(idx<0) idx=0;
 
@@ -529,8 +533,8 @@
         ui.tooltip.innerHTML = `<span class="t-word">${w}</span><span class="t-trans">...</span>`;
         try {
             const t = await api(w);
-            ui.tooltip.innerHTML = `<span class="t-word">${w}</span><span class="t-trans">${t}</span><button class="close-tip" onclick="document.getElementById('tooltip').style.display='none'">X</button>`;
-        } catch { ui.tooltip.innerHTML = "Error"; }
+            ui.tooltip.innerHTML = `<span class="t-word">${w}</span><span class="t-trans">${t}</span><button class="close-tip" onclick="document.getElementById('tooltip').style.display='none'">Закрыть</button>`;
+        } catch { ui.tooltip.innerHTML = "Ошибка"; }
     };
 
     document.addEventListener('click', (e) => {
