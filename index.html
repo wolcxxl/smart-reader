@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Smart Reader v31</title>
+    <title>Smart Reader v33</title>
     
     <!-- Libs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -19,7 +19,7 @@
             --highlight: #2d333b;
             --success: #4ec9b0;
             --danger: #f14c4c;
-            --font-size: 18px; /* Переменная для размера шрифта */
+            --font-size: 18px;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -36,61 +36,87 @@
             touch-action: none;
         }
 
-        /* --- SPOILER HEADER --- */
+        /* --- HEADER (MENU) --- */
+        #main-header {
+            height: 0;
+            overflow: hidden;
+            background: #2d2d30;
+            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid transparent;
+            display: flex;
+            flex-direction: column; /* Вертикальный стек */
+            padding: 0 10px;
+            gap: 10px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 100;
+        }
+
+        #main-header.open {
+            height: 120px; /* Увеличили высоту, чтобы влез отступ */
+            border-bottom-color: var(--border);
+            padding-top: 40px; /* ВАЖНО: Спускаем контент ниже кнопки */
+            padding-bottom: 10px;
+        }
+
+        /* Кнопка-язычок меню */
         #menu-toggle {
             position: absolute;
             top: 0; 
             left: 50%;
             transform: translateX(-50%);
             z-index: 200;
-            background: rgba(45, 45, 48, 0.9);
+            background: #333;
             color: #fff;
             border: 1px solid #555;
             border-top: none;
-            border-bottom-left-radius: 8px;
-            border-bottom-right-radius: 8px;
-            padding: 2px 20px;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            padding: 2px 30px;
             cursor: pointer;
-            font-size: 20px;
+            font-size: 24px;
             line-height: 1;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background 0.2s;
         }
+        #menu-toggle:active { background: var(--accent); }
 
-        #main-header {
-            height: 0;
-            overflow-x: auto;
-            overflow-y: hidden;
-            background: #2d2d30;
-            transition: height 0.3s ease;
-            border-bottom: 1px solid transparent;
+        /* Строки меню */
+        .menu-row {
             display: flex;
             align-items: center;
-            padding: 0 10px;
-            gap: 15px;
-            flex-shrink: 0;
-            white-space: nowrap;
+            justify-content: space-between;
+            width: 100%;
+            gap: 10px;
+            height: 35px;
         }
 
-        #main-header.open {
-            height: 60px;
-            border-bottom-color: var(--border);
-            padding-top: 10px;
-        }
+        /* Группы элементов */
+        .group { display: flex; align-items: center; gap: 8px; }
 
-        /* Controls inside header */
+        /* Controls Styles */
         .file-wrapper {
-            position: relative; overflow: hidden; background: #444; padding: 6px 12px;
+            position: relative; overflow: hidden; background: #444; padding: 4px 10px;
             border-radius: 6px; cursor: pointer; display: flex; align-items: center; white-space: nowrap;
+            font-size: 13px; border: 1px solid #555;
         }
         .file-wrapper input { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; }
         
-        .group { display: flex; align-items: center; gap: 5px; }
+        select { 
+            background: #3e3e42; color: white; border: 1px solid #555; 
+            padding: 4px; border-radius: 6px; font-size: 13px; height: 28px;
+        }
         
-        select { background: #3e3e42; color: white; border: 1px solid #555; padding: 5px; border-radius: 6px; }
-        button { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; }
+        button { 
+            background: var(--accent); color: white; border: none; 
+            padding: 4px 10px; border-radius: 6px; font-size: 13px; height: 28px;
+        }
         button:disabled { background: #333; color: #666; }
-        .icon-btn { width: 36px; padding: 0; font-size: 16px; display: flex; justify-content: center; align-items: center; }
+        
+        .icon-btn { 
+            width: 32px; padding: 0; font-size: 16px; 
+            display: flex; justify-content: center; align-items: center; 
+        }
         
         button.active-state { background: #fff; color: #000; }
 
@@ -120,13 +146,13 @@
         }
 
         .trans-controls { display: flex; gap: 8px; }
-        .btn-tiny { padding: 2px 8px; font-size: 10px; height: 20px; border-radius: 3px; }
+        .btn-tiny { padding: 0 8px; font-size: 10px; height: 20px; border-radius: 3px; }
         .btn-start { background: var(--success); color: #111; }
         .btn-stop { background: var(--danger); }
 
         .content-area {
             flex: 1; overflow-y: auto; padding: 15px; 
-            font-size: var(--font-size); /* Используем переменную */
+            font-size: var(--font-size); 
             line-height: 1.5;
             -webkit-overflow-scrolling: touch; touch-action: pan-y;
         }
@@ -144,48 +170,28 @@
         .resizer::after { content: ""; width: 30px; height: 3px; background: #444; border-radius: 2px; }
         .resizer.active, .resizer:hover { background: #333; }
 
-        /* --- TEXT SYNC --- */
-        .orig-p { 
-            margin-bottom: 1em; 
-            text-align: justify; 
-            padding: 2px;
-            border: 1px solid transparent;
-        }
+        /* Text Sync */
+        .orig-p { margin-bottom: 1em; text-align: justify; padding: 2px; border: 1px solid transparent; }
         
         .trans-p {
-            margin-bottom: 1em; 
-            padding: 4px 18px 4px 4px;
-            border: 1px solid #333;
-            border-radius: 4px;
-            cursor: pointer; 
-            position: relative; 
-            background: #232323;
-            min-height: 1.5em;
-            text-align: justify;
+            margin-bottom: 1em; padding: 4px 18px 4px 4px;
+            border: 1px solid #333; border-radius: 4px;
+            cursor: pointer; position: relative; 
+            background: #232323; min-height: 1.5em; text-align: justify;
         }
         
         .trans-marker {
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            font-size: 12px;
-            opacity: 0.6;
-            pointer-events: none;
+            position: absolute; top: 2px; right: 2px;
+            font-size: 12px; opacity: 0.6; pointer-events: none;
         }
 
         .trans-p:active { background: #333; border-color: #555; }
         
         .trans-p.translated { 
-            border-color: transparent; 
-            background: transparent; 
-            cursor: text; 
-            padding: 2px;
-            border-left: 2px solid var(--accent); 
-            padding-left: 8px;
-            border-radius: 0;
+            border-color: transparent; background: transparent; cursor: text; 
+            padding: 2px; border-left: 2px solid var(--accent); padding-left: 8px; border-radius: 0;
         }
         .trans-p.translated .trans-marker { display: none; }
-        
         .trans-p.current { border-color: var(--success); background: rgba(78, 201, 176, 0.1); }
         .trans-p.error { border-color: red; }
 
@@ -205,7 +211,7 @@
         .t-trans { color: #ddd; display:block; margin-bottom: 8px; font-size: 1.1em;}
         .close-tip { width: 100%; padding: 4px; background: rgba(255,255,255,0.1); border:none; color:#ccc; border-radius:4px; font-size:11px; }
 
-        /* Loader & Status */
+        /* Loader */
         #statusLine {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: rgba(45, 45, 48, 0.9); color: #999; font-size: 10px;
@@ -223,47 +229,54 @@
 
 <div id="progressBar"></div>
 
-<!-- MENU TOGGLE BUTTON (CENTERED) -->
-<button id="menu-toggle" title="Меню">☰</button>
+<!-- MENU TOGGLE -->
+<button id="menu-toggle" title="Настройки">☰</button>
 
-<!-- COLLAPSIBLE HEADER -->
+<!-- HEADER -->
 <header id="main-header">
-    <div class="file-wrapper">
-        <span>📂</span>
-        <input type="file" id="fileInput">
+    
+    <!-- ROW 1: File, Font -->
+    <div class="menu-row">
+        <div class="file-wrapper">
+            <span>📂</span>
+            <input type="file" id="fileInput">
+        </div>
+
+        <div class="group">
+            <select id="fontFamily" title="Шрифт" style="width:65px">
+                <option value="ui">Sans</option>
+                <option value="serif">Serif</option>
+                <option value="mono">Mono</option>
+            </select>
+            <select id="fontSize" title="Размер" style="width:50px">
+                <option value="14px">14</option>
+                <option value="16px">16</option>
+                <option value="18px" selected>18</option>
+                <option value="20px">20</option>
+                <option value="24px">24</option>
+                <option value="30px">30</option>
+            </select>
+            <button id="boldToggle" class="icon-btn" title="Жирный" style="font-weight:bold; width:30px">B</button>
+        </div>
     </div>
 
-    <!-- Font Settings -->
-    <div class="group" style="border-left:1px solid #444; padding-left:10px;">
-        <select id="fontFamily" title="Шрифт" style="width:70px">
-            <option value="ui">Sans</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Mono</option>
-        </select>
-        <select id="fontSize" title="Размер" style="width:55px">
-            <option value="14px">14</option>
-            <option value="16px">16</option>
-            <option value="18px" selected>18</option>
-            <option value="20px">20</option>
-            <option value="24px">24</option>
-            <option value="30px">30</option>
-        </select>
-        <button id="boldToggle" class="icon-btn" title="Жирный" style="font-weight:bold">B</button>
+    <!-- ROW 2: Languages, View, Nav -->
+    <div class="menu-row">
+        <div class="group">
+            <select id="srcLang"><option value="auto">Auto</option><option value="en">EN</option><option value="de">DE</option><option value="fr">FR</option></select>
+            <span style="color:#666">→</span>
+            <select id="tgtLang"><option value="ru">RU</option><option value="en">EN</option><option value="uk">UK</option></select>
+        </div>
+
+        <button id="layoutBtn" class="icon-btn" title="Вид">⬍</button>
+
+        <div class="group" id="controls" style="display:none;">
+            <button id="prevBtn" class="icon-btn">←</button>
+            <select id="chapterSelect" style="max-width:80px"></select>
+            <button id="nextBtn" class="icon-btn">→</button>
+        </div>
     </div>
 
-    <div class="group" style="border-left:1px solid #444; padding-left:10px;">
-        <select id="srcLang"><option value="auto">Auto</option><option value="en">EN</option><option value="de">DE</option><option value="fr">FR</option></select>
-        <span>→</span>
-        <select id="tgtLang"><option value="ru">RU</option><option value="en">EN</option><option value="uk">UK</option></select>
-    </div>
-
-    <button id="layoutBtn" class="icon-btn" title="Вид">⬍</button>
-
-    <div class="group" id="controls" style="display:none; margin-left:auto;">
-        <button id="prevBtn" class="icon-btn">←</button>
-        <select id="chapterSelect" style="max-width:80px"></select>
-        <button id="nextBtn" class="icon-btn">→</button>
-    </div>
 </header>
 
 <div id="container">
@@ -271,8 +284,9 @@
         <div class="panel-head">Оригинал</div>
         <div id="origPanel" class="content-area">
             <div style="text-align:center; margin-top:30vh; color:#555;">
-                <p>Поддерживаемые форматы</p>
-                <p>PDF FB2 EPUB ZIP</p>
+                <p>Поддерживаемые форматы.</p>
+                <p>PDF FB2 EPUB ZIP<p/>
+                <p>Приятного чтения!</p>
             </div>
         </div>
     </div>
@@ -320,7 +334,6 @@
         bar: document.getElementById('progressBar'),
         btnStart: document.getElementById('btnStart'),
         btnStop: document.getElementById('btnStop'),
-        // Font controls
         fontFam: document.getElementById('fontFamily'),
         fontSize: document.getElementById('fontSize'),
         boldBtn: document.getElementById('boldToggle')
@@ -333,17 +346,15 @@
         ui.header.classList.toggle('open');
     };
 
-    // --- FONT SETTINGS ---
+    // --- FONTS ---
     ui.fontFam.onchange = () => {
         document.body.classList.remove('font-serif', 'font-mono');
         if(ui.fontFam.value === 'serif') document.body.classList.add('font-serif');
         if(ui.fontFam.value === 'mono') document.body.classList.add('font-mono');
     };
-
     ui.fontSize.onchange = () => {
         document.documentElement.style.setProperty('--font-size', ui.fontSize.value);
     };
-
     ui.boldBtn.onclick = () => {
         document.body.classList.toggle('font-bold');
         ui.boldBtn.classList.toggle('active-state');
@@ -399,13 +410,13 @@
         const f = e.target.files[0];
         if(!f) return;
         
-        ui.header.classList.remove('open'); // Закрыть меню после выбора
+        ui.header.classList.remove('open'); 
         setStatus(`Load: ${f.name}`);
         showLoad();
         await sleep(50); 
 
         try {
-            ui.controls.style.display = 'none';
+            ui.controls.style.display = 'flex'; // Показываем навигацию по главам
             const n = f.name.toLowerCase();
             
             if(n.endsWith('.zip')) await loadZip(f);
@@ -441,7 +452,6 @@
         const secs = Array.from(body.querySelectorAll("section"));
         fb2Sections = [];
         ui.chapSel.innerHTML = '';
-        ui.controls.style.display = 'flex';
         
         if(secs.length > 0) {
             secs.forEach((s, i) => {
@@ -475,7 +485,6 @@
         spine = book.spine.spineItems;
         ui.chapSel.innerHTML = '';
         spine.forEach((_,i) => ui.chapSel.add(new Option(`${i+1}`, i)));
-        ui.controls.style.display = 'flex';
         loadEpubChap(0);
     }
     async function loadEpubChap(i) {
@@ -507,7 +516,7 @@
         finally { hideLoad(); }
     }
 
-    // --- RENDER (SYNC OPTIMIZED) ---
+    // --- RENDER ---
     function render(txt) {
         ui.orig.innerHTML = ''; ui.trans.innerHTML = ''; ui.orig.scrollTop = 0;
         const arr = txt.split(/\n\s*\n/).filter(x => x.trim().length > 1);
